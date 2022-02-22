@@ -1,3 +1,5 @@
+% testing a grid cell CAN network with IZ neurons
+% Nate Sutton 2022
 Ne=800; Ni=100;
 a=[0.1*ones(Ne,1);0.1+0.08*ones(Ni,1)];
 b=[0.2*ones(Ne,1);0.25-0.05*ones(Ni,1)];
@@ -10,9 +12,8 @@ Ie=5*ones(Ne+Ni,1); % excitatory input
 Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
-%voltage=[];
 
-simdur = 1000;%100e3; % total simulation time, ms
+simdur = 100;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
@@ -20,24 +21,46 @@ load('data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
 load('data/B_saved.mat'); % velocity input matrix
 load('data/gc_firing_init.mat'); % initial gc firing
 mex_hat = W;
+h = figure('color','w','name','');
 
 for t=1:simdur % simulation of 1000 ms
 	fired=find(v>=30); % indices of spikes
 	firings=[firings; t+0*fired,fired];
-	Ii = inhib_curr(Ii, t, mex_hat, firings);
+	%Ii = inhib_curr(Ii, t, mex_hat, firings);
 	[v, u] = iznrn(v, u, p, fired, Ie, Ii);
-	%voltage(end+1)=v;
 
 	%in_firing = (mex_hat*gc_firing')';
 	%ex_firing = B*2;
 	%new_firing = in_firing + ex_firing;
 	%new_firing = new_firing.*(new_firing>0);
 	%gc_firing = gc_firing + (new_firing - gc_firing)/tau;
+	heatmap(ncells, firings, t, h);
 end
-%disp(fbin(801,400,500,firings));
-%tbe = tbin(801,500,firings);
 %plot(firings(:,1),firings(:,2),'.');
-%Ii = inhib_curr(Ii, 1, mex_hat, firings);
+
+function heatmap(ncells, firings, t, h)
+	binned_firing = [];
+	for i=1:sqrt(ncells)
+		temp = [];
+		for j=1:sqrt(ncells)
+			nrn_i = ((i-1)*sqrt(ncells))+j;
+			spk_t = fbin(nrn_i, 0, 100, firings);
+			temp = [temp; spk_t(1,1)];
+		end
+		binned_firing = [binned_firing; temp'];
+	end
+	%custom_colormap = load('neuron_space_colormap.mat');
+	figure(h); %ax(1) = subplot(131);
+	imagesc(binned_firing);
+	colormap(hot);
+	axis square
+	title({sprintf('t = %.1f ms',t),'Population activity'})
+	set(gca,'ydir','normal')
+	cb = colorbar;
+	set(cb, 'ylim', [0 5.5]); % set colorbar range
+	drawnow
+	%disp(binned_firing);
+end
 
 function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	a=p(:,1);b=p(:,2);c=p(:,3);d=p(:,4);
