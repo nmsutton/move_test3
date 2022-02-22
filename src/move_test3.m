@@ -13,32 +13,43 @@ Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
 
-simdur = 100;%100e3; % total simulation time, ms
+simdur = 200;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
-load('data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
-load('data/B_saved.mat'); % velocity input matrix
-load('data/gc_firing_init.mat'); % initial gc firing
+load('../data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
+load('../data/B_saved.mat'); % velocity input matrix
+load('../data/gc_firing_init.mat'); % initial gc firing
 mex_hat = W;
+% video parameters
 h = figure('color','w','name','');
+numberOfFrames = simdur;
+allTheFrames = cell(numberOfFrames,1);
+vidHeight = 337;%342;
+vidWidth = 442;%434;
+allTheFrames(:) = {zeros(vidHeight, vidWidth, 3, 'uint8')};
+allTheColorMaps = cell(numberOfFrames,1);
+allTheColorMaps(:) = {zeros(256, 3)};
+myMovie = struct('cdata', allTheFrames, 'colormap', allTheColorMaps);
+set(gcf, 'nextplot', 'replacechildren'); 
+set(gcf, 'renderer', 'zbuffer');
+caxis manual;          % allow subsequent plots to use the same color limits
 
 for t=1:simdur % simulation of 1000 ms
 	fired=find(v>=30); % indices of spikes
 	firings=[firings; t+0*fired,fired];
-	%Ii = inhib_curr(Ii, t, mex_hat, firings);
+	Ii = inhib_curr(Ii, t, mex_hat, firings);
 	[v, u] = iznrn(v, u, p, fired, Ie, Ii);
-
-	%in_firing = (mex_hat*gc_firing')';
-	%ex_firing = B*2;
-	%new_firing = in_firing + ex_firing;
-	%new_firing = new_firing.*(new_firing>0);
-	%gc_firing = gc_firing + (new_firing - gc_firing)/tau;
-	heatmap(ncells, firings, t, h);
+	myMovie = heatmap(ncells, firings, t, h, myMovie);
 end
-%plot(firings(:,1),firings(:,2),'.');
+close(h);
+%myMovie(1) = []; % remove first frame causing issues due to wrong size
+videofile = VideoWriter('heatmap.avi'); % Create a VideoWriter object to write the video out to a new, different file.
+open(videofile)
+writeVideo(videofile,myMovie) % Write the movie object to a new video file.
+close(videofile)
 
-function heatmap(ncells, firings, t, h)
+function myMovie = heatmap(ncells, firings, t, h, myMovie)
 	binned_firing = [];
 	for i=1:sqrt(ncells)
 		temp = [];
@@ -60,6 +71,8 @@ function heatmap(ncells, firings, t, h)
 	set(cb, 'ylim', [0 5.5]); % set colorbar range
 	drawnow
 	%disp(binned_firing);
+	thisFrame = getframe(gcf);
+  	myMovie(t) = thisFrame;
 end
 
 function [v, u] = iznrn(v, u, p, fired, Ie, Ii)

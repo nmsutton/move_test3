@@ -1,2 +1,3 @@
 data/*.mat
-*.asv
+src/*.asv
+src/*.avi
