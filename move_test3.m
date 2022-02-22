@@ -1,4 +1,4 @@
-Ne=800; Ni=200;
+Ne=800; Ni=100;
 a=[0.1*ones(Ne,1);0.1+0.08*ones(Ni,1)];
 b=[0.2*ones(Ne,1);0.25-0.05*ones(Ni,1)];
 c=[-65*ones(Ne+Ni,1)];
@@ -6,30 +6,49 @@ d=[8*ones(Ne,1);2*ones(Ni,1)];
 p = [a, b, c, d];
 
 v=-65*ones(Ne+Ni,1); % Initial values of v
-I=5*ones(Ne+Ni,1); % thalamic input
+Ie=5*ones(Ne+Ni,1); % excitatory input
+Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
 %voltage=[];
 
-for t=1:1000 % simulation of 1000 ms
+simdur = 1000;%100e3; % total simulation time, ms
+ncells = Ne+Ni;%30*30; % total number of cells in network
+tau = 10; %% Cell parameters % grid cell synapse time constant, ms
+t = 0; % simulation time variable, ms
+load('data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
+load('data/B_saved.mat'); % velocity input matrix
+load('data/gc_firing_init.mat'); % initial gc firing
+mex_hat = W;
+
+for t=1:simdur % simulation of 1000 ms
 	fired=find(v>=30); % indices of spikes
 	firings=[firings; t+0*fired,fired];
-	[v, u] = iznrn(v, u, p, fired, I);
+	Ii = inhib_curr(Ii, t, mex_hat, firings);
+	[v, u] = iznrn(v, u, p, fired, Ie, Ii);
 	%voltage(end+1)=v;
-end
-disp(fire_bin(801,400,500,firings));
-%plot(firings(:,1),firings(:,2),'.');
 
-function [v, u] = iznrn(v, u, p, fired, I)
+	%in_firing = (mex_hat*gc_firing')';
+	%ex_firing = B*2;
+	%new_firing = in_firing + ex_firing;
+	%new_firing = new_firing.*(new_firing>0);
+	%gc_firing = gc_firing + (new_firing - gc_firing)/tau;
+end
+%disp(fbin(801,400,500,firings));
+%tbe = tbin(801,500,firings);
+%plot(firings(:,1),firings(:,2),'.');
+%Ii = inhib_curr(Ii, 1, mex_hat, firings);
+
+function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	a=p(:,1);b=p(:,2);c=p(:,3);d=p(:,4);
 	v(fired)=c(fired);
 	u(fired)=u(fired)+d(fired);
-	v=v+0.5*(0.04*v.^2+5*v+140-u+I); % step 0.5 ms
-	v=v+0.5*(0.04*v.^2+5*v+140-u+I); % for numerical stability
+	v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 0.5 ms
+	v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % for numerical stability
 	u=u+a.*(b.*v-u);
 end
 
-function spikes = fire_bin(ni, startt, endt, firings) 
+function spikes = fbin(ni, startt, endt, firings) 
 	% report firing in time bin
 	% ni = neuron index, startt = start time, endt = end time
 	st = []; % spike times
@@ -39,4 +58,43 @@ function spikes = fire_bin(ni, startt, endt, firings)
 	end
 	st = find(st>startt & st<endt);
 	spikes = size(st);
+end
+
+function stimes = tbin(ni, t, firings) 
+	% report spike times in a bin of time
+	stimes = []; % spike times
+	sti = []; % spike time index
+	tst = t - 100;% start time of bin
+	all_firing = (find(firings(:,2)==ni));
+	for si=1:size(all_firing)
+		sti = [sti; firings(all_firing(si),1)];
+	end
+	sti = find(sti>tst & sti<t);
+	for si=1:size(sti)
+		stimes = [stimes; firings(all_firing(sti(si)),1)];
+	end
+end
+
+function te = del_t(t)
+	% value which is reduced according to the time passed (t - spike_time)
+	te = 1/t;
+end
+
+function Ii = inhib_curr(Ii, t, mex_hat, firings)
+	% generate inhibitory currents
+	tau = 10; % tau time constant
+	w_t = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
+	for i=1:size(Ii)
+		% compute weights
+		w_t = zeros(size(mex_hat,1)); % clear values
+		stimes = tbin(i,t,firings);
+		for j=1:size(stimes)
+			w_t(:,i) = w_t(:,i)+(mex_hat(:,i)*del_t(t-stimes(j))');
+		end
+	end
+
+	% calculate tau factor
+	o = ones(size(mex_hat(:,1)));
+	w_summed = w_t*o;
+	Ii = Ii + (w_summed - Ii)/tau;
 end
