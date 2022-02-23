@@ -61,10 +61,8 @@ function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	a=p(:,1);b=p(:,2);c=p(:,3);d=p(:,4);
 	v(fired)=c(fired);
 	u(fired)=u(fired)+d(fired);
-	%v=v+1*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
-	v=v+1*(0.04*v.^2+5*v+140-u-2); % step 1.0 ms
-	%v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 0.5 ms
-	%v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % for numerical stability
+	v=v+(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
+	%v=v+(0.04*v.^2+5*v+140-u-2); % step 1.0 ms
 	u=u+a.*(b.*v-u);
 end
 
@@ -125,7 +123,7 @@ function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie)
 		temp = [];
 		for j=1:sqrt(ncells)
 			nrn_i = ((i-1)*sqrt(ncells))+j;
-			spk_t = fbin(nrn_i, 0, 10, firings);
+			spk_t = fbin(nrn_i, t-10, t, firings);
 			temp = [temp; spk_t(1,1)];
 		end
 		binned_firing = [binned_firing; temp'];
