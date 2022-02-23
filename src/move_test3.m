@@ -1,6 +1,7 @@
 % testing a grid cell CAN network with IZ neurons
 % Nate Sutton 2022
-Ne=800; Ni=100;
+%Ne=800; Ni=100;
+Ne=0; Ni=900;
 a=[0.1*ones(Ne,1);0.1+0.08*ones(Ni,1)];
 b=[0.2*ones(Ne,1);0.25-0.05*ones(Ni,1)];
 c=[-65*ones(Ne+Ni,1)];
@@ -8,22 +9,25 @@ d=[8*ones(Ne,1);2*ones(Ni,1)];
 p = [a, b, c, d];
 
 v=-65*ones(Ne+Ni,1); % Initial values of v
-Ie=5*ones(Ne+Ni,1); % excitatory input
 Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
 
-simdur = 200;%100e3; % total simulation time, ms
+simdur = 50;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
+skip_t = 10; % initial time to skip because pregenerated initial firing is loaded in this time
 load('../data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
 load('../data/B_saved.mat'); % velocity input matrix
-load('../data/gc_firing_init.mat'); % initial gc firing
+%load('../data/gc_firing_init.mat'); % initial gc firing
+load('init_firings.mat'); % initial gc firing
 mex_hat = W;
+Ie=5*B'; % excitatory input
 % video parameters
+savevideo = true;
 h = figure('color','w','name','');
-numberOfFrames = simdur;
+numberOfFrames = simdur-skip_t;
 allTheFrames = cell(numberOfFrames,1);
 vidHeight = 337;%342;
 vidWidth = 442;%434;
@@ -35,52 +39,32 @@ set(gcf, 'nextplot', 'replacechildren');
 set(gcf, 'renderer', 'zbuffer');
 caxis manual;          % allow subsequent plots to use the same color limits
 
-for t=1:simdur % simulation of 1000 ms
+for t=skip_t:simdur % simulation of 1000 ms
 	fired=find(v>=30); % indices of spikes
 	firings=[firings; t+0*fired,fired];
-	Ii = inhib_curr(Ii, t, mex_hat, firings);
+	%Ii = inhib_curr(Ii, t, mex_hat, firings);
 	[v, u] = iznrn(v, u, p, fired, Ie, Ii);
-	myMovie = heatmap(ncells, firings, t, h, myMovie);
-end
-close(h);
-%myMovie(1) = []; % remove first frame causing issues due to wrong size
-videofile = VideoWriter('heatmap.avi'); % Create a VideoWriter object to write the video out to a new, different file.
-open(videofile)
-writeVideo(videofile,myMovie) % Write the movie object to a new video file.
-close(videofile)
-
-function myMovie = heatmap(ncells, firings, t, h, myMovie)
-	binned_firing = [];
-	for i=1:sqrt(ncells)
-		temp = [];
-		for j=1:sqrt(ncells)
-			nrn_i = ((i-1)*sqrt(ncells))+j;
-			spk_t = fbin(nrn_i, 0, 100, firings);
-			temp = [temp; spk_t(1,1)];
-		end
-		binned_firing = [binned_firing; temp'];
+	if savevideo
+		myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie);
 	end
-	%custom_colormap = load('neuron_space_colormap.mat');
-	figure(h); %ax(1) = subplot(131);
-	imagesc(binned_firing);
-	colormap(hot);
-	axis square
-	title({sprintf('t = %.1f ms',t),'Population activity'})
-	set(gca,'ydir','normal')
-	cb = colorbar;
-	set(cb, 'ylim', [0 5.5]); % set colorbar range
-	drawnow
-	%disp(binned_firing);
-	thisFrame = getframe(gcf);
-  	myMovie(t) = thisFrame;
+end
+
+close(h);
+if savevideo
+	videofile = VideoWriter('heatmap.avi'); % Create a VideoWriter object to write the video out to a new, different file.
+	open(videofile)
+	writeVideo(videofile,myMovie) % Write the movie object to a new video file.
+	close(videofile)
 end
 
 function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	a=p(:,1);b=p(:,2);c=p(:,3);d=p(:,4);
 	v(fired)=c(fired);
 	u(fired)=u(fired)+d(fired);
-	v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 0.5 ms
-	v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % for numerical stability
+	%v=v+1*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
+	v=v+1*(0.04*v.^2+5*v+140-u-2); % step 1.0 ms
+	%v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % step 0.5 ms
+	%v=v+0.5*(0.04*v.^2+5*v+140-u+Ie-Ii); % for numerical stability
 	u=u+a.*(b.*v-u);
 end
 
@@ -133,4 +117,30 @@ function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	o = ones(size(mex_hat(:,1)));
 	w_summed = w_t*o;
 	Ii = Ii + (w_summed - Ii)/tau;
+end
+
+function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie)
+	binned_firing = [];
+	for i=1:sqrt(ncells)
+		temp = [];
+		for j=1:sqrt(ncells)
+			nrn_i = ((i-1)*sqrt(ncells))+j;
+			spk_t = fbin(nrn_i, 0, 10, firings);
+			temp = [temp; spk_t(1,1)];
+		end
+		binned_firing = [binned_firing; temp'];
+	end
+	%custom_colormap = load('neuron_space_colormap.mat');
+	figure(h); %ax(1) = subplot(131);
+	imagesc(binned_firing);
+	colormap(hot);
+	axis square
+	title({sprintf('t = %.1f ms',t),'Population activity'})
+	set(gca,'ydir','normal')
+	cb = colorbar;
+	set(cb, 'ylim', [0 5.5]); % set colorbar range
+	drawnow
+	%disp(binned_firing);
+	thisFrame = getframe(gcf);
+  	myMovie(t-(skip_t-1)) = thisFrame;
 end
