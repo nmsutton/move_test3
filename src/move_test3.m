@@ -13,7 +13,7 @@ Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
 
-simdur = 50;%100e3; % total simulation time, ms
+simdur = 75;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
@@ -23,8 +23,13 @@ load('../data/B_saved.mat'); % velocity input matrix
 %load('../data/gc_firing_init.mat'); % initial gc firing
 load('init_firings.mat'); % initial gc firing
 mex_hat = W;
-Ie=5*B'; % excitatory input
+%Ie=5*B'; % excitatory input
+%Ie=60*B'; % excitatory input
+Ie=60*ones(ncells,1); % excitatory input
+%Ii=-1*example_ii';
+%Ie = example_ie'*150;
 % video parameters
+ccol = load('neuron_space_colormap.mat');
 savevideo = true;
 h = figure('color','w','name','');
 numberOfFrames = simdur-skip_t;
@@ -42,10 +47,14 @@ caxis manual;          % allow subsequent plots to use the same color limits
 for t=skip_t:simdur % simulation of 1000 ms
 	fired=find(v>=30); % indices of spikes
 	firings=[firings; t+0*fired,fired];
-	%Ii = inhib_curr(Ii, t, mex_hat, firings);
+	% inhib
+	Ii = inhib_curr(Ii, t, mex_hat, firings);
+	% excit
+	%Ie = Ie .* (1 + (rand(ncells,1)*.02)); % add some random noise
+	%Ie = Ie .* (1 - (rand(ncells,1)*.02)); % subtract some random noise
 	[v, u] = iznrn(v, u, p, fired, Ie, Ii);
 	if savevideo
-		myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie);
+		myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie, ccol);
 	end
 end
 
@@ -61,7 +70,8 @@ function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	a=p(:,1);b=p(:,2);c=p(:,3);d=p(:,4);
 	v(fired)=c(fired);
 	u(fired)=u(fired)+d(fired);
-	v=v+(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
+	%v=v+(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
+	v=v+(0.04*v.^2+5*v+140-u+Ie+Ii); % step 1.0 ms
 	%v=v+(0.04*v.^2+5*v+140-u-2); % step 1.0 ms
 	u=u+a.*(b.*v-u);
 end
@@ -83,6 +93,7 @@ function stimes = tbin(ni, t, firings)
 	stimes = []; % spike times
 	sti = []; % spike time index
 	tst = t - 100;% start time of bin
+    %tst = t - 10;% start time of bin
 	all_firing = (find(firings(:,2)==ni));
 	for si=1:size(all_firing)
 		sti = [sti; firings(all_firing(si),1)];
@@ -95,7 +106,8 @@ end
 
 function te = del_t(t)
 	% value which is reduced according to the time passed (t - spike_time)
-	te = 1/t;
+	%te = 1/t;
+	te = 1/(t^.25);
 end
 
 function Ii = inhib_curr(Ii, t, mex_hat, firings)
@@ -104,20 +116,25 @@ function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	w_t = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
 	for i=1:size(Ii)
 		% compute weights
-		w_t = zeros(size(mex_hat,1)); % clear values
 		stimes = tbin(i,t,firings);
 		for j=1:size(stimes)
-			w_t(:,i) = w_t(:,i)+(mex_hat(:,i)*del_t(t-stimes(j))');
-		end
+	        w_t(:,i) = w_t(:,i)+del_t(t-stimes(j));
+	    end    
 	end
+	%w_t = ((mex_hat*30)*w_t')';
+    w_t = ((mex_hat)*w_t')';
+	%w_t = w_t.*0.09;
+    %w_t = 1727 + w_t;
+    %w_t = w_t.*0.03474;%0.001;
+    w_t = w_t.*0.009;
 
 	% calculate tau factor
 	o = ones(size(mex_hat(:,1)));
-	w_summed = w_t*o;
+	w_summed = w_t'*o;
 	Ii = Ii + (w_summed - Ii)/tau;
 end
 
-function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie)
+function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie, ccol)
 	binned_firing = [];
 	for i=1:sqrt(ncells)
 		temp = [];
@@ -128,17 +145,20 @@ function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie)
 		end
 		binned_firing = [binned_firing; temp'];
 	end
-	%custom_colormap = load('neuron_space_colormap.mat');
-	figure(h); %ax(1) = subplot(131);
+	figure(h);
+	cla reset;
+  	hAxes = gca;
 	imagesc(binned_firing);
-	colormap(hot);
+	colormap(ccol.CustomColormap2);
+	xlabel('neuron position on x axis') 
+	ylabel('neuron position on y axis')
+	shading interp;
 	axis square
 	title({sprintf('t = %.1f ms',t),'Population activity'})
 	set(gca,'ydir','normal')
 	cb = colorbar;
 	set(cb, 'ylim', [0 5.5]); % set colorbar range
 	drawnow
-	%disp(binned_firing);
 	thisFrame = getframe(gcf);
   	myMovie(t-(skip_t-1)) = thisFrame;
 end
