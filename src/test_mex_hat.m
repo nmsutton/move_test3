@@ -15,14 +15,18 @@ for i=1:size(Ii)
     end    
 end
 %w_t = w_t.*mex_hat;
-w_t = (mex_hat*w_t')';
-w_t = w_t.*-0.09;
+%w_t = (mex_hat*w_t')';
+%w_t = w_t.*-0.09;
 
 % calculate tau factor
 o = ones(size(mex_hat(:,1)));
 w_summed = w_t'*o;
+for i=1:size(Ii)
+	w_summed2 = 60 - 60*(w_summed/3258);
+end
 %w_summed = w_summed.*(w_summed<0); % only negative weights
-Ii = Ii + (w_summed - Ii)/tau;
+Ii = w_summed2;
+%Ii = Ii + (w_summed - Ii)/tau;
 Ii_resh = reshape(Ii,30,30);
 Ii_resh2 = reshape(w_summed,30,30);
 

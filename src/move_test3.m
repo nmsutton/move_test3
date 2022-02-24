@@ -13,7 +13,7 @@ Ii=0*ones(Ne+Ni,1); % inhibitory input
 u=b.*v;
 firings=[];
 
-simdur = 75;%100e3; % total simulation time, ms
+simdur = 150;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
@@ -71,7 +71,8 @@ function [v, u] = iznrn(v, u, p, fired, Ie, Ii)
 	v(fired)=c(fired);
 	u(fired)=u(fired)+d(fired);
 	%v=v+(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
-	v=v+(0.04*v.^2+5*v+140-u+Ie+Ii); % step 1.0 ms
+	%v=v+(0.04*v.^2+5*v+140-u+Ie+Ii); % step 1.0 ms
+	v=v+(0.04*v.^2+5*v+140-u+Ie-Ii); % step 1.0 ms
 	%v=v+(0.04*v.^2+5*v+140-u-2); % step 1.0 ms
 	u=u+a.*(b.*v-u);
 end
@@ -113,25 +114,27 @@ end
 function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	% generate inhibitory currents
 	tau = 10; % tau time constant
-	w_t = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
+	gc_firing = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
 	for i=1:size(Ii)
 		% compute weights
 		stimes = tbin(i,t,firings);
 		for j=1:size(stimes)
-	        w_t(:,i) = w_t(:,i)+del_t(t-stimes(j));
+	        gc_firing(:,i) = gc_firing(:,i)+del_t(t-stimes(j));
 	    end    
-	end
-	%w_t = ((mex_hat*30)*w_t')';
-    w_t = ((mex_hat)*w_t')';
-	%w_t = w_t.*0.09;
-    %w_t = 1727 + w_t;
-    %w_t = w_t.*0.03474;%0.001;
-    w_t = w_t.*0.009;
+    end
+    %in_current = ((mex_hat)*gc_firing')';
+    %in_current = in_current.*0.009;
 
 	% calculate tau factor
 	o = ones(size(mex_hat(:,1)));
-	w_summed = w_t'*o;
-	Ii = Ii + (w_summed - Ii)/tau;
+	%in_summed = in_current'*o;
+	in_summed = gc_firing'*o;
+	for i=1:size(Ii)
+		in_summed2 = 60 - 60*(in_summed/3258);
+	end
+	Ii = in_summed2;
+	Ii = Ii.*(Ii>0); % no negative values
+	%Ii = Ii + (in_summed - Ii)/tau;
 end
 
 function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie, ccol)
