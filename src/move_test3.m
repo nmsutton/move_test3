@@ -9,7 +9,8 @@ d=[8*ones(Ne,1);2*ones(Ni,1)];
 p = [a, b, c, d];
 
 v=-65*ones(Ne+Ni,1); % Initial values of v
-Ii=0*ones(Ne+Ni,1); % inhibitory input
+%Ii=0*ones(Ne+Ni,1); % inhibitory input
+load('init_firings.mat'); % initial gc firing
 u=b.*v;
 firings=[];
 
@@ -132,9 +133,10 @@ function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	for i=1:size(Ii)
 		in_summed2 = 60 - 60*(in_summed/3258);
 	end
-	Ii = in_summed2;
-	Ii = Ii.*(Ii>0); % no negative values
-	%Ii = Ii + (in_summed - Ii)/tau;
+	%Ii = in_summed2;
+	%Ii = Ii.*(Ii>0); % no negative values
+	in_summed2 = in_summed2.*(in_summed2>0); % no negative values
+	Ii = Ii + (in_summed2 - Ii)/tau;
 end
 
 function myMovie = heatmap(ncells, firings, t, skip_t, h, myMovie, ccol)

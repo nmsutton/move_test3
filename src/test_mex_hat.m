@@ -1,4 +1,5 @@
-Ii=0*ones(Ne+Ni,1); % inhibitory input
+%Ii=0*ones(Ne+Ni,1); % inhibitory input
+load('Ii_initial.mat'); % initial gc firing
 load('../data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
 load('init_firings.mat'); % initial gc firing
 mex_hat = W;
@@ -25,8 +26,10 @@ for i=1:size(Ii)
 	w_summed2 = 60 - 60*(w_summed/3258);
 end
 %w_summed = w_summed.*(w_summed<0); % only negative weights
-Ii = w_summed2;
-%Ii = Ii + (w_summed - Ii)/tau;
+%Ii = w_summed2;
+%Ii = Ii.*(Ii>0); % no negative values
+w_summed2 = w_summed2.*(w_summed2>0); % no negative values
+Ii = Ii + (w_summed2 - Ii)/tau;
 Ii_resh = reshape(Ii,30,30);
 Ii_resh2 = reshape(w_summed,30,30);
 
