@@ -1,5 +1,6 @@
 %Ii=0*ones(Ne+Ni,1); % inhibitory input
 load('Ii_initial.mat'); % initial gc firing
+Ii = Ii_initial;
 load('../data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
 load('init_firings.mat'); % initial gc firing
 mex_hat = W;
@@ -7,29 +8,31 @@ t=11;
 
 % generate inhibitory currents
 tau = 10; % tau time constant
-w_t = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
+gc_firing = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
 for i=1:size(Ii)
 	% compute weights
 	stimes = tbin(i,t,firings);
 	for j=1:size(stimes)
-        w_t(:,i) = w_t(:,i)+del_t(t-stimes(j));
+        gc_firing(:,i) = gc_firing(:,i)+del_t(t-stimes(j));
     end    
 end
 %w_t = w_t.*mex_hat;
-%w_t = (mex_hat*w_t')';
-%w_t = w_t.*-0.09;
+in_current = ((mex_hat^1.5)*gc_firing')';
+in_current = in_current.*-0.023;
 
 % calculate tau factor
 o = ones(size(mex_hat(:,1)));
-w_summed = w_t'*o;
-for i=1:size(Ii)
-	w_summed2 = 60 - 60*(w_summed/3258);
-end
-%w_summed = w_summed.*(w_summed<0); % only negative weights
-%Ii = w_summed2;
+in_summed = in_current'*o;
+%in_summed = gc_firing'*o;
+%for i=1:size(Ii)
+%	in_summed2 = 60 - 60*(in_summed/3258);
+%end
+in_summed2 = in_summed;
+%in_summed = in_summed.*(in_summed>0); % no negative values
+%Ii = in_summed2;
 %Ii = Ii.*(Ii>0); % no negative values
-w_summed2 = w_summed2.*(w_summed2>0); % no negative values
-Ii = Ii + (w_summed2 - Ii)/tau;
+in_summed2 = in_summed2.*(in_summed2>0); % no negative values
+Ii = Ii + (in_summed2 - Ii)/tau;
 Ii_resh = reshape(Ii,30,30);
 Ii_resh2 = reshape(w_summed,30,30);
 

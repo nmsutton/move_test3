@@ -11,6 +11,7 @@ p = [a, b, c, d];
 v=-65*ones(Ne+Ni,1); % Initial values of v
 %Ii=0*ones(Ne+Ni,1); % inhibitory input
 load('init_firings.mat'); % initial gc firing
+Ii = Ii_initial;
 u=b.*v;
 firings=[];
 
@@ -123,16 +124,18 @@ function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	        gc_firing(:,i) = gc_firing(:,i)+del_t(t-stimes(j));
 	    end    
     end
-    %in_current = ((mex_hat)*gc_firing')';
-    %in_current = in_current.*0.009;
+	in_current = ((mex_hat^1.5)*gc_firing')';
+	in_current = in_current.*-0.023;
 
 	% calculate tau factor
 	o = ones(size(mex_hat(:,1)));
-	%in_summed = in_current'*o;
-	in_summed = gc_firing'*o;
-	for i=1:size(Ii)
-		in_summed2 = 60 - 60*(in_summed/3258);
-	end
+	in_summed = in_current'*o;
+	%in_summed = gc_firing'*o;
+	%for i=1:size(Ii)
+	%	in_summed2 = 60 - 60*(in_summed/3258);
+	%end
+	in_summed2 = in_summed;
+	%in_summed = in_summed.*(in_summed>0); % no negative values
 	%Ii = in_summed2;
 	%Ii = Ii.*(Ii>0); % no negative values
 	in_summed2 = in_summed2.*(in_summed2>0); % no negative values
