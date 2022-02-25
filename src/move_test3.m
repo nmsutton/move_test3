@@ -15,7 +15,7 @@ Ii = Ii_initial;
 u=b.*v;
 firings=[];
 
-simdur = 200;%100e3; % total simulation time, ms
+simdur = 1000;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
@@ -27,8 +27,8 @@ load('../data/B_saved.mat'); % velocity input matrix
 load('init_firings.mat'); % initial gc firing
 mex_hat = abs(W);
 %Ie=5*B'; % excitatory input
-%Ie=60*(B.^2)'; % excitatory input
-Ie=60*ones(ncells,1); % excitatory input
+Ie=60*(B.^5)'; % excitatory input
+%Ie=60*ones(ncells,1); % excitatory input
 %Ii=-1*example_ii';
 %Ie = example_ie'*150;
 % video parameters
