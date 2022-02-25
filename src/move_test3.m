@@ -10,23 +10,24 @@ p = [a, b, c, d];
 
 v=-65*ones(Ne+Ni,1); % Initial values of v
 %Ii=0*ones(Ne+Ni,1); % inhibitory input
-load('init_firings.mat'); % initial gc firing
+load('Ii_initial.mat'); % initial gc firing
 Ii = Ii_initial;
 u=b.*v;
 firings=[];
 
-simdur = 150;%100e3; % total simulation time, ms
+simdur = 200;%100e3; % total simulation time, ms
 ncells = Ne+Ni;%30*30; % total number of cells in network
 tau = 10; %% Cell parameters % grid cell synapse time constant, ms
 t = 0; % simulation time variable, ms
 skip_t = 10; % initial time to skip because pregenerated initial firing is loaded in this time
 load('../data/W_Bu09_torus_n900_l2.mat'); % load weight matrix
+%load('../data/mex_hat2.mat'); % load weight matrix
 load('../data/B_saved.mat'); % velocity input matrix
 %load('../data/gc_firing_init.mat'); % initial gc firing
 load('init_firings.mat'); % initial gc firing
-mex_hat = W;
+mex_hat = abs(W);
 %Ie=5*B'; % excitatory input
-%Ie=60*B'; % excitatory input
+%Ie=60*(B.^2)'; % excitatory input
 Ie=60*ones(ncells,1); % excitatory input
 %Ii=-1*example_ii';
 %Ie = example_ie'*150;
@@ -91,53 +92,40 @@ function spikes = fbin(ni, startt, endt, firings)
 	spikes = size(st);
 end
 
-function stimes = tbin(ni, t, firings) 
+function spike_found = find_spike(ni, t, firings) 
 	% report spike times in a bin of time
-	stimes = []; % spike times
-	sti = []; % spike time index
-	tst = t - 100;% start time of bin
-    %tst = t - 10;% start time of bin
-	all_firing = (find(firings(:,2)==ni));
-	for si=1:size(all_firing)
-		sti = [sti; firings(all_firing(si),1)];
-	end
-	sti = find(sti>tst & sti<t);
-	for si=1:size(sti)
-		stimes = [stimes; firings(all_firing(sti(si)),1)];
-	end
-end
-
-function te = del_t(t)
-	% value which is reduced according to the time passed (t - spike_time)
-	%te = 1/t;
-	te = 1/(t^.25);
+	spike_found = false;
+	all_spike_times = (find(firings(:,2)==ni));
+	for si=1:size(all_spike_times)
+		spike_time = firings(all_spike_times(si),1);
+        if spike_time == t
+            spike_found = true;
+        end
+    end
 end
 
 function Ii = inhib_curr(Ii, t, mex_hat, firings)
 	% generate inhibitory currents
 	tau = 10; % tau time constant
-	gc_firing = zeros(size(mex_hat,1)); % weights multipled by time deltas intermediate values
+	gc_firing = zeros(size(mex_hat,1)); 
 	for i=1:size(Ii)
-		% compute weights
-		stimes = tbin(i,t,firings);
-		for j=1:size(stimes)
-	        gc_firing(:,i) = gc_firing(:,i)+del_t(t-stimes(j));
+		%stimes = tbin(i,t,firings);
+        spike_found = find_spike(i,t,firings);
+		if spike_found == true
+	        gc_firing(:,i) = gc_firing(:,i)+1;
 	    end    
     end
-	in_current = ((mex_hat^1.5)*gc_firing')';
-	in_current = in_current.*-0.023;
+	in_current = ((mex_hat.^4)*gc_firing')';
+    in_current = in_current.*5000;
 
 	% calculate tau factor
 	o = ones(size(mex_hat(:,1)));
 	in_summed = in_current'*o;
 	%in_summed = gc_firing'*o;
 	%for i=1:size(Ii)
-	%	in_summed2 = 60 - 60*(in_summed/3258);
+	%	in_summed2 = 150 - 150*(in_summed/900);
 	%end
 	in_summed2 = in_summed;
-	%in_summed = in_summed.*(in_summed>0); % no negative values
-	%Ii = in_summed2;
-	%Ii = Ii.*(Ii>0); % no negative values
 	in_summed2 = in_summed2.*(in_summed2>0); % no negative values
 	Ii = Ii + (in_summed2 - Ii)/tau;
 end
