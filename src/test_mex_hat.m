@@ -18,12 +18,7 @@ for i=1:size(Ii)
         gc_firing(:,i) = gc_firing(:,i)+1;
     end    
 end
-%w_t = w_t.*mex_hat;
-%in_current = ((mex_hat^1.5)*gc_firing')';
-%in_current = ((mex_hat)*gc_firing')';
-%in_current = in_current.*-.007;
-in_current = ((mex_hat.^4)*gc_firing')';
-in_current = in_current.*5000;
+in_current = (((mex_hat.^4)*4500)*gc_firing')';
 
 % calculate tau factor
 o = ones(size(mex_hat(:,1)));
